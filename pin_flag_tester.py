@@ -19,6 +19,9 @@ tool_path = pin_path + '/source/tools/ManualExamples/obj-ia32'
 tool_name = 'inscount0.so'
 tool_location = tool_path+'/'+tool_name
 
+WARNING_COLOR = '\033[93m'
+END_COLOR = '\033[0m'
+
 
 #this handles all the argument parsing for this script
 def parse_args():
@@ -59,6 +62,10 @@ def parse_args():
         parser.print_usage()
         print "args parsing error is %s ".format(e)
 
+#this function is to print highlighted text
+def print_warning(text):
+    print WARNING_COLOR + text + END_COLOR 
+
 #this function will grab the instruction count that pin outputs and return as an int
 def get_instruction_count():
     with open(inscount_filename,'r') as f:
@@ -83,11 +90,11 @@ def build_flag_from_start():
         print ""
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
-            print "Flag to this point: {}".format(flag_temp)
+            print_warning( "Flag to this point: {}".format(flag_temp))
             raise Exception("can't determine next character")
         flag_temp += icounts_dict[max(icounts_dict.keys(),key=int)]
-        print "known flag so far: {}".format(flag_temp)
-    print "GOT FLAG: {}".format(flag_temp)
+        print_warning("known flag so far: {}".format(flag_temp))
+    print_warning("GOT FLAG: {}".format(flag_temp))
 
 def main():
     build_flag_from_start()
