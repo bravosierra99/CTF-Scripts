@@ -32,7 +32,6 @@ def parse_args():
     parser.add_argument('-t', nargs=1, type=str, help="a character that you expect the flag to end with, DEFAULT = }")
     parser.add_argument('-P', nargs=1, type=str, help="the full path to your pin executable, NOTE, just the path without a terminating '/'")
     args = parser.parse_args()
-    print args, args.t,hasattr(args,'t')
     try:
         global charset
         global target_executable
@@ -49,7 +48,6 @@ def parse_args():
         if args.f:
             flag_builder = args.f[0]
         if args.t:
-            print "terminator set!"
             flag_terminator = args.t[0]
         if args.P:
             pin_path = args.P[0]
@@ -72,14 +70,12 @@ def build_flag_from_start():
     flag_temp = flag_builder
     print "targetting {} with flag {}".format(target_executable,flag_temp)
     while not flag_temp.endswith(flag_terminator):
-        print "terminator" , flag_terminator
         icounts_dict = {}
         print "trying:"
         for char in charset:
             sys.stdout.write(char)
             sys.stdout.flush()
             try:
-                #print flag_temp
                 subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp+char])
             except Exception as e:
                 #print e
