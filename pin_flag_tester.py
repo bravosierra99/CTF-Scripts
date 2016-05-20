@@ -18,6 +18,11 @@ pin_location = pin_path + '/pin'
 tool_path = pin_path + '/source/tools/ManualExamples/obj-ia32'
 tool_name = 'inscount0.so'
 tool_location = tool_path+'/'+tool_name
+flag_length = len(flag_builder)
+enumeration_tolerence = 10
+enumerate_flag = False
+build_flag = False
+
 
 WARNING_COLOR = '\033[93m'
 END_COLOR = '\033[0m'
@@ -34,6 +39,10 @@ def parse_args():
     parser.add_argument('-f',metavar="flag", nargs=1, type=str, help="a new flag starting point")
     parser.add_argument('-t', nargs=1, type=str, help="a character that you expect the flag to end with, DEFAULT = }")
     parser.add_argument('-P', nargs=1, type=str, help="the full path to your pin executable, NOTE, just the path without a terminating '/'")
+    parser.add_argument('-e',action='store_true',help="attempt to enumerate the flag length")
+    parser.add_argument('-b',action='store_true',help="attempt to build flag")
+    parser.add_argument('-arch64',action='store_true',help="use a 64 bit version of the tool")
+    parser.add_argument('-T', nargs=1, type=int, help="what tolerence to use between instruction counts for flag enumeration")
     args = parser.parse_args()
     try:
         global charset
@@ -41,6 +50,12 @@ def parse_args():
         global flag_builder
         global flag_terminator
         global pin_path
+        global enumerate_flag
+        global build_flag
+        global tool_location
+        global tool_path
+        global tool_name
+        global enumeration_tolerence
         target_executable = args.target
         if args.w:
             charset = WHITESPACE_CHARSET
@@ -58,6 +73,16 @@ def parse_args():
             tool_path = pin_path + '/source/tools/ManualExamples/obj-ia32'
             tool_name = 'inscount0.so'
             tool_location = tool_path+'/'+tool_name
+        if args.e:
+            enumerate_flag = True
+        if args.b:
+            build_flag = True
+        if args.arch64:
+            tool_path = pin_path + '/source/tools/ManualExamples/obj-intel64' 
+            tool_location = tool_path+'/'+tool_name
+        if args.T:
+            enumeration_tolerence = args.T[0]
+            
     except Exception as e:
         parser.print_usage()
         print "args parsing error is %s ".format(e)
@@ -73,7 +98,6 @@ def get_instruction_count():
 
 #this function is for building a flag from a starting point.  Will not work if the program is checking for length
 def build_flag_from_start():
-    
     flag_temp = flag_builder
     print "targetting {} with flag {}".format(target_executable,flag_temp)
     while not flag_temp.endswith(flag_terminator):
@@ -96,8 +120,35 @@ def build_flag_from_start():
         print_warning("known flag so far: {}".format(flag_temp))
     print_warning("GOT FLAG: {}".format(flag_temp))
 
+def enum_flag_length():
+    flag_temp = flag_builder
+    print "targetting {} with flag {}".format(target_executable,flag_temp)
+    icounts_dict = {}
+    while len(flag_temp) <= 50:
+        print "trying length {}".format(str(len(flag_temp)))
+        try:
+            subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp])
+        except Exception as e:
+            #print e
+            icounts_dict[get_instruction_count()] = flag_temp
+        flag_temp += 'z'
+        if not abs(max(icounts_dict.keys(),key=int) - min(icounts_dict.keys(),key=int)) < enumeration_tolerence :
+            break
+            
+    if len(flag_temp) > 50:
+        print_warning("Unable to enumerate flag length")
+    else:
+        print_warning("Got flag length: {}".format(str(len(icounts_dict[max(icounts_dict.keys(),key=int)]))))
+        global flag_length 
+        flag_length = len(icounts_dict[max(icounts_dict.keys(),key=int)])
+        
+ 
+
 def main():
-    build_flag_from_start()
+    if enumerate_flag:
+        enum_flag_length()
+    if build_flag:
+        build_flag_from_start()
 
 
 if __name__ == "__main__":
