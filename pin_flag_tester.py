@@ -1,6 +1,5 @@
 import subprocess, string, argparse, sys
 
-
 DEFAULT_CHARSET = string.letters+string.digits+string.punctuation
 PRINTABLE_CHARSET = string.printable
 WHITESPACE_CHARSET = string.letters+string.digits+string.whitespace
@@ -73,7 +72,6 @@ def get_instruction_count():
 
 #this function is for building a flag from a starting point.  Will not work if the program is checking for length
 def build_flag_from_start():
-    
     flag_temp = flag_builder
     print "targetting {} with flag {}".format(target_executable,flag_temp)
     while not flag_temp.endswith(flag_terminator):
