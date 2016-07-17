@@ -21,6 +21,7 @@ flag_length = len(flag_builder)
 enumeration_tolerence = 10
 enumerate_flag = False
 build_flag = False
+DEFAULT_FILL_CHAR = 'z'
 
 
 WARNING_COLOR = '\033[93m'
@@ -92,8 +93,11 @@ def print_warning(text):
 
 #this function will grab the instruction count that pin outputs and return as an int
 def get_instruction_count():
-    with open(inscount_filename,'r') as f:
-        return int(f.read().strip().split(' ')[1])
+    try:
+        with open(inscount_filename,'r') as f:
+            return int(f.read().strip().split(' ')[1])
+    except Exception as e:
+        print "unable to get instruction count, this usually means that the arguments to the pin tool were incorrect.  Is your architecture correct?"
 
 #this function is for building a flag from a starting point.  Will not work if the program is checking for length
 def build_flag_from_start():
@@ -114,7 +118,7 @@ def build_flag_from_start():
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
             print_warning( "Flag to this point: {}".format(flag_temp))
-            raise Exception("can't determine next character")
+            raise Exception("can't determine next character, you might have the Flag!")
         flag_temp += icounts_dict[max(icounts_dict.keys(),key=int)]
         print_warning("known flag so far: {}".format(flag_temp))
     print_warning("GOT FLAG: {}".format(flag_temp))
@@ -128,20 +132,51 @@ def enum_flag_length():
         try:
             subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp])
         except Exception as e:
-            #print e
-            icounts_dict[get_instruction_count()] = flag_temp
+            if e.returncode == 255:
+                print "your pintool did not run correctly, does your user have permission to run /opt/pin/pin?  did you choose the correct architecture for binary you are targetting?"
+                print e
+            try:
+                icounts_dict[get_instruction_count()] = flag_temp
+            except Exception as e:
+                print e
         flag_temp += 'z'
-        if not abs(max(icounts_dict.keys(),key=int) - min(icounts_dict.keys(),key=int)) < enumeration_tolerence :
+        if not (abs(max(icounts_dict.keys(),key=int) - min(icounts_dict.keys(),key=int)) < enumeration_tolerence) :
             break
-            
     if len(flag_temp) > 50:
         print_warning("Unable to enumerate flag length")
     else:
         print_warning("Got flag length: {}".format(str(len(icounts_dict[max(icounts_dict.keys(),key=int)]))))
         global flag_length 
         flag_length = len(icounts_dict[max(icounts_dict.keys(),key=int)])
-        
- 
+
+#This function will attempt to build the flag when the flag must be a certain length to pass a length check.  width is the required length of the flag
+def build_flag_with_width(width):
+    flag_temp = flag_builder
+    temp_len = len(flag_temp)
+    target_char_index = (width - temp_len)
+    flag_temp = flag_temp + DEFAULT_FILL_CHAR * target_char_index
+    print "targetting {} with flag {}".format(target_executable,flag_temp)
+    while (not flag_temp.endswith(flag_terminator)) or  target_char_index > width:
+        icounts_dict = {}
+        print "trying:"
+        for char in charset:
+            sys.stdout.write(char)
+            sys.stdout.flush()
+            try:
+                subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp[:target_char_index]+[char]+flag_temp[target_char_index+1:]])
+            except Exception as e:
+                #print e
+                icounts_dict[get_instruction_count()] = char
+        print ""
+        if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
+            print "all charaters in charset have same instruction count"
+            print_warning( "Flag to this point: {}".format(flag_temp))
+            raise Exception("can't determine next character, you might have the Flag!")
+        flag_temp = icounts_dict[max(icounts_dict.keys(),key=int)]
+        target_char_index += 1
+        print_warning("known flag so far: {}".format(flag_temp))
+    print_warning("GOT FLAG: {}".format(flag_temp))
+            
 
 def main():
     if enumerate_flag:
