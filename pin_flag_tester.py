@@ -18,11 +18,13 @@ tool_path = pin_path + '/source/tools/ManualExamples/obj-ia32'
 tool_name = 'inscount0.so'
 tool_location = tool_path+'/'+tool_name
 flag_length = len(flag_builder)
-enumeration_tolerence = 10
+enumeration_tolerence = 50
 enumerate_flag = False
 build_flag = False
+build_flag_length = False
 DEFAULT_FILL_CHAR = 'z'
-
+fill_char = DEFAULT_FILL_CHAR
+flag_length = 0
 
 WARNING_COLOR = '\033[93m'
 END_COLOR = '\033[0m'
@@ -39,8 +41,10 @@ def parse_args():
     parser.add_argument('-f',metavar="flag", nargs=1, type=str, help="a new flag starting point")
     parser.add_argument('-t', nargs=1, type=str, help="a character that you expect the flag to end with, DEFAULT = }")
     parser.add_argument('-P', nargs=1, type=str, help="the full path to your pin executable, NOTE, just the path without a terminating '/'")
-    parser.add_argument('-e',action='store_true',help="attempt to enumerate the flag length")
-    parser.add_argument('-b',action='store_true',help="attempt to build flag")
+    parser.add_argument('--enum',action='store_true',help="attempt to enumerate the flag length")
+    parser.add_argument('--build',action='store_true',help="attempt to build flag")
+    parser.add_argument('--build_length',action='store_true',help="attempt to build the flag with a set length")
+    parser.add_argument('-l', nargs=1, type=str, help="the length of the flag, use with -build_length")
     parser.add_argument('-arch64',action='store_true',help="use a 64 bit version of the tool")
     parser.add_argument('-T', nargs=1, type=int, help="what tolerence to use between instruction counts for flag enumeration")
     args = parser.parse_args()
@@ -56,6 +60,8 @@ def parse_args():
         global tool_path
         global tool_name
         global enumeration_tolerence
+        global flag_length
+        global build_flag_length
         target_executable = args.target
         if args.w:
             charset = WHITESPACE_CHARSET
@@ -73,10 +79,11 @@ def parse_args():
             tool_path = pin_path + '/source/tools/ManualExamples/obj-ia32'
             tool_name = 'inscount0.so'
             tool_location = tool_path+'/'+tool_name
-        if args.e:
-            enumerate_flag = True
-        if args.b:
-            build_flag = True
+        if args.l:
+            flag_length = int(args.l[0])
+        enumerate_flag = args.enum
+        build_flag = args.build
+        build_flag_length = args.build_length
         if args.arch64:
             tool_path = pin_path + '/source/tools/ManualExamples/obj-intel64' 
             tool_location = tool_path+'/'+tool_name
@@ -139,9 +146,10 @@ def enum_flag_length():
                 icounts_dict[get_instruction_count()] = flag_temp
             except Exception as e:
                 print e
-        flag_temp += 'z'
         if not (abs(max(icounts_dict.keys(),key=int) - min(icounts_dict.keys(),key=int)) < enumeration_tolerence) :
+            print icounts_dict
             break
+        flag_temp += 'z'
     if len(flag_temp) > 50:
         print_warning("Unable to enumerate flag length")
     else:
@@ -149,24 +157,26 @@ def enum_flag_length():
         global flag_length 
         flag_length = len(icounts_dict[max(icounts_dict.keys(),key=int)])
 
-#This function will attempt to build the flag when the flag must be a certain length to pass a length check.  width is the required length of the flag
-def build_flag_with_width(width):
+#This function will attempt to build the flag when the flag must be a certain length to pass a length check.  length is the required length of the flag
+def build_flag_with_length(length):
     flag_temp = flag_builder
     temp_len = len(flag_temp)
-    target_char_index = (width - temp_len)
-    flag_temp = flag_temp + DEFAULT_FILL_CHAR * target_char_index
+    target_char_index = temp_len
+    flag_temp = flag_temp + DEFAULT_FILL_CHAR * (length-temp_len)
     print "targetting {} with flag {}".format(target_executable,flag_temp)
-    while (not flag_temp.endswith(flag_terminator)) or  target_char_index > width:
+    while (not flag_temp.endswith(flag_terminator)) or  target_char_index > length:
         icounts_dict = {}
         print "trying:"
         for char in charset:
             sys.stdout.write(char)
             sys.stdout.flush()
+            #print flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]
             try:
-                subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp[:target_char_index]+[char]+flag_temp[target_char_index+1:]])
+                subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]])
             except Exception as e:
                 #print e
-                icounts_dict[get_instruction_count()] = char
+                icounts_dict[get_instruction_count()] = flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]
+                #print get_instruction_count()
         print ""
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
@@ -183,6 +193,11 @@ def main():
         enum_flag_length()
     if build_flag:
         build_flag_from_start()
+
+    if build_flag_length and flag_length == 0:
+        raise "flag length must be set to use the build_length argument"
+    elif build_flag_length and flag_length != 0:
+        build_flag_with_length(flag_length)
 
 
 if __name__ == "__main__":
