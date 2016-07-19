@@ -1,5 +1,4 @@
-import subprocess, string, argparse, sys
-
+import subprocess, string, argparse, sys, logging 
 DEFAULT_CHARSET = string.letters+string.digits+string.punctuation
 PRINTABLE_CHARSET = string.printable
 WHITESPACE_CHARSET = string.letters+string.digits+string.whitespace
@@ -26,7 +25,8 @@ DEFAULT_FILL_CHAR = 'z'
 fill_char = DEFAULT_FILL_CHAR
 flag_length = 0
 
-WARNING_COLOR = '\033[93m'
+YELLOW_COLOR = '\033[93m'
+RED_COLOR = '\033[31m'
 END_COLOR = '\033[0m'
 
 
@@ -94,9 +94,14 @@ def parse_args():
         parser.print_usage()
         print "args parsing error is %s ".format(e)
 
-#this function is to print highlighted text
-def print_warning(text):
-    print WARNING_COLOR + text + END_COLOR 
+#this function is to print yellow text
+def print_yellow(text):
+    print YELLOW_COLOR + text + END_COLOR 
+
+#this function is to print red text
+def print_red(text):
+    print RED_COLOR + text + END_COLOR
+
 
 #this function will grab the instruction count that pin outputs and return as an int
 def get_instruction_count():
@@ -119,16 +124,16 @@ def build_flag_from_start():
             try:
                 subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp+char])
             except Exception as e:
-                #print e
+                logging.debug(e)
                 icounts_dict[get_instruction_count()] = char
         print ""
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
-            print_warning( "Flag to this point: {}".format(flag_temp))
+            print_yellow( "Flag to this point: {}".format(flag_temp))
             raise Exception("can't determine next character, you might have the Flag!")
         flag_temp += icounts_dict[max(icounts_dict.keys(),key=int)]
-        print_warning("known flag so far: {}".format(flag_temp))
-    print_warning("GOT FLAG: {}".format(flag_temp))
+        print_yellow("known flag so far: {}".format(flag_temp))
+    print_red("GOT FLAG: {}".format(flag_temp))
 
 def enum_flag_length():
     flag_temp = flag_builder
@@ -145,15 +150,15 @@ def enum_flag_length():
             try:
                 icounts_dict[get_instruction_count()] = flag_temp
             except Exception as e:
-                print e
+                logging.debug(e)
         if not (abs(max(icounts_dict.keys(),key=int) - min(icounts_dict.keys(),key=int)) < enumeration_tolerence) :
             print icounts_dict
             break
         flag_temp += 'z'
     if len(flag_temp) > 50:
-        print_warning("Unable to enumerate flag length")
+        print_yellow("Unable to enumerate flag length")
     else:
-        print_warning("Got flag length: {}".format(str(len(icounts_dict[max(icounts_dict.keys(),key=int)]))))
+        print_yellow("Got flag length: {}".format(str(len(icounts_dict[max(icounts_dict.keys(),key=int)]))))
         global flag_length 
         flag_length = len(icounts_dict[max(icounts_dict.keys(),key=int)])
 
@@ -164,31 +169,31 @@ def build_flag_with_length(length):
     target_char_index = temp_len
     flag_temp = flag_temp + DEFAULT_FILL_CHAR * (length-temp_len)
     print "targetting {} with flag {}".format(target_executable,flag_temp)
-    while (not flag_temp.endswith(flag_terminator)) or  target_char_index > length:
+    while (not flag_temp.endswith(flag_terminator)) and  target_char_index < length:
         icounts_dict = {}
         print "trying:"
         for char in charset:
             sys.stdout.write(char)
             sys.stdout.flush()
-            #print flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]
             try:
                 subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]])
             except Exception as e:
-                #print e
+                logging.debug(e)
                 icounts_dict[get_instruction_count()] = flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]
-                #print get_instruction_count()
         print ""
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
-            print_warning( "Flag to this point: {}".format(flag_temp))
+            print_yellow( "Flag to this point: {}".format(flag_temp))
             raise Exception("can't determine next character, you might have the Flag!")
         flag_temp = icounts_dict[max(icounts_dict.keys(),key=int)]
         target_char_index += 1
-        print_warning("known flag so far: {}".format(flag_temp))
-    print_warning("GOT FLAG: {}".format(flag_temp))
+        print_yellow("known flag so far: {}".format(flag_temp))
+    print_red("GOT FLAG: {}".format(flag_temp))
             
 
 def main():
+    parse_args()
+    logging.basicConfig(format='%(levelname)s:%(message)s')
     if enumerate_flag:
         enum_flag_length()
     if build_flag:
@@ -201,7 +206,6 @@ def main():
 
 
 if __name__ == "__main__":
-    parse_args()
     main()
 
 
