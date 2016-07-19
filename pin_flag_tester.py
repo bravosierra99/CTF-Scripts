@@ -1,4 +1,5 @@
 import subprocess, string, argparse, sys, logging 
+
 DEFAULT_CHARSET = string.letters+string.digits+string.punctuation
 PRINTABLE_CHARSET = string.printable
 WHITESPACE_CHARSET = string.letters+string.digits+string.whitespace
@@ -47,6 +48,7 @@ def parse_args():
     parser.add_argument('-l', nargs=1, type=str, help="the length of the flag, use with -build_length")
     parser.add_argument('-arch64',action='store_true',help="use a 64 bit version of the tool")
     parser.add_argument('-T', nargs=1, type=int, help="what tolerence to use between instruction counts for flag enumeration")
+    parser.add_argument('-d', action='store_true',  help="enable debugging")
     args = parser.parse_args()
     try:
         global charset
@@ -89,6 +91,8 @@ def parse_args():
             tool_location = tool_path+'/'+tool_name
         if args.T:
             enumeration_tolerence = args.T[0]
+        if args.d:
+            logging.basicConfig(format='%(levelname)s:%(message)s',level=logging.DEBUG)
             
     except Exception as e:
         parser.print_usage()
@@ -190,7 +194,6 @@ def build_flag_with_length(length):
         print_yellow("known flag so far: {}".format(flag_temp))
     print_red("GOT FLAG: {}".format(flag_temp))
             
-
 def main():
     parse_args()
     logging.basicConfig(format='%(levelname)s:%(message)s')
@@ -203,7 +206,6 @@ def main():
         raise "flag length must be set to use the build_length argument"
     elif build_flag_length and flag_length != 0:
         build_flag_with_length(flag_length)
-
 
 if __name__ == "__main__":
     main()
