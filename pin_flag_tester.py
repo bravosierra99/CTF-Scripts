@@ -115,6 +115,18 @@ def get_instruction_count():
     except Exception as e:
         print "unable to get instruction count, this usually means that the arguments to the pin tool were incorrect.  Is your architecture correct?"
 
+#this function executes pin and returns the instruction count
+def dispatch_pin(flag):
+    try:
+        subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag])
+    except Exception as e:
+        if e.returncode == 255:
+            print "your pintool did not run correctly, does your user have permission to run /opt/pin/pin?  did you choose the correct architecture for binary you are targetting?"
+            raise e
+        logging.debug(e)
+        return get_instruction_count()
+
+
 #this function is for building a flag from a starting point.  Will not work if the program is checking for length
 def build_flag_from_start():
     flag_temp = flag_builder
@@ -125,11 +137,8 @@ def build_flag_from_start():
         for char in charset:
             sys.stdout.write(char)
             sys.stdout.flush()
-            try:
-                subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp+char])
-            except Exception as e:
-                logging.debug(e)
-                icounts_dict[get_instruction_count()] = char
+            icounts_dict[dispatch_pin(flag_temp + char)] = char
+            logging.debug(icounts_dict)
         print ""
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
@@ -145,18 +154,9 @@ def enum_flag_length():
     icounts_dict = {}
     while len(flag_temp) <= 50:
         print "trying length {}".format(str(len(flag_temp)))
-        try:
-            subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp])
-        except Exception as e:
-            if e.returncode == 255:
-                print "your pintool did not run correctly, does your user have permission to run /opt/pin/pin?  did you choose the correct architecture for binary you are targetting?"
-                print e
-            try:
-                icounts_dict[get_instruction_count()] = flag_temp
-            except Exception as e:
-                logging.debug(e)
+        icounts_dict[dispatch_pin(flag_temp)] = flag_temp
+        logging.debug(icounts_dict)
         if not (abs(max(icounts_dict.keys(),key=int) - min(icounts_dict.keys(),key=int)) < enumeration_tolerence) :
-            print icounts_dict
             break
         flag_temp += 'z'
     if len(flag_temp) > 50:
@@ -179,11 +179,9 @@ def build_flag_with_length(length):
         for char in charset:
             sys.stdout.write(char)
             sys.stdout.flush()
-            try:
-                subprocess.check_output([pin_location, '-t', tool_location, '-o', 'inscount.log', '--', target_executable, flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]])
-            except Exception as e:
-                logging.debug(e)
-                icounts_dict[get_instruction_count()] = flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]
+            flag_spliced = flag_temp[:target_char_index]+char+flag_temp[target_char_index+1:]
+            icounts_dict[dispatch_pin(flag_spliced)] = flag_spliced
+            logging.debug(icounts_dict)
         print ""
         if max(icounts_dict.keys(),key=int) == min(icounts_dict.keys(),key=int):
             print "all charaters in charset have same instruction count"
